@@ -243,7 +243,7 @@ class Glossary:
     """A sorted collection of glossary entries.
 
     Lemma comparison — used for sorting, insertion position, and lookup — is
-    **case-sensitive (byte order)** by design: langkit targets writing systems
+    **case-sensitive (byte order)** by design: conlangkit targets writing systems
     where casing rules are not English and 'A'/'a' may be unrelated letters, so
     case-folding is not assumed. Callers must therefore use each lemma in its
     canonical case (e.g. `AID` and `aid` are distinct entries)."""
