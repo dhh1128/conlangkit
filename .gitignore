@@ -134,3 +134,24 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.ai-safety-check.*
+
+# Local agent/editor state (machine-specific)
+.claude
+.worktrees/
+
+# Check in the review-board review-panel tooling, which lives under the
+# otherwise-ignored .claude/ above. Re-include only the skill and its workflow;
+# everything else under .claude/ (settings.local.json, worktrees, run state)
+# stays ignored.
+!.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/review-board/
+!.claude/workflows/
+.claude/workflows/*
+!.claude/workflows/review-panel.js
+
+# uv
+# (uv.lock IS committed; the virtualenv is not)
