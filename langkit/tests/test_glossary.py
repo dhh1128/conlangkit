@@ -163,3 +163,117 @@ def test_find_defn_wildcards():
 def test_find_anywhere():
     assert len(g.find('swallow')) == 1
     assert len(g.find('vinegar', try_fuzzy=True)) == 1
+
+# ── Backslash escaping in the definition column ────────────────────────────────
+# A literal '/' in a definition is written on disk as '\/', a literal '\' as '\\'.
+# In memory, values are always UNESCAPED (so search/gloss operate on real text);
+# on disk, they are re-escaped so a bare '/' remains the equiv separator.
+
+def test_defn_literal_slash_is_one_equiv():
+    d = Defn(r'bakobo\/heti, over keripy')
+    assert len(d.equivs) == 1
+    assert d.equivs[0].kind == EXACT_EQUIV
+    assert d.equivs[0].value == 'bakobo/heti, over keripy'   # unescaped in memory
+    assert str(d) == r'bakobo\/heti, over keripy'            # re-escaped on disk
+
+def test_defn_bare_slash_still_splits():
+    # Regression: an unescaped '/' is still the equiv separator (Kila/martian rely on this).
+    d = Defn('a red fruit / >jonathan')
+    assert len(d.equivs) == 2
+
+def test_defn_mixed_literal_slash_and_separator():
+    d = Defn(r'allow\/ask\/deny / >other')
+    assert len(d.equivs) == 2
+    assert any(e.kind == EXACT_EQUIV and e.value == 'allow/ask/deny' for e in d.equivs)
+    assert any(e.kind == NARROWER_EQUIV and e.value == 'other' for e in d.equivs)
+
+def test_defn_literal_backslash_roundtrips():
+    d = Defn(r'a\\b')                      # file has two backslashes
+    assert len(d.equivs) == 1
+    assert d.equivs[0].value == 'a\\b'     # one backslash in memory
+    assert str(d) == r'a\\b'               # doubled on disk
+
+def test_defn_backslash_then_separator():
+    # '\\' (literal backslash) followed by an unescaped '/' separator -> two equivs.
+    d = Defn(r'a\\ / b')
+    assert len(d.equivs) == 2
+    assert any(e.value == 'a\\' for e in d.equivs)
+    assert any(e.value == 'b' for e in d.equivs)
+
+def test_entry_literal_slash_roundtrips():
+    line = r'heti | component | bakobo\/heti over keripy | a dependency'
+    e = Entry(line)
+    assert e.defn.equivs[0].value == 'bakobo/heti over keripy'
+    assert str(e) == line
+
+def test_search_operates_on_unescaped_value():
+    e = Entry(r'heti | component | bakobo\/heti over keripy | note')
+    assert SearchExpr('d:*bakobo/heti*').matches(e)
+
+def test_escaped_glossary_roundtrips_byte_identical():
+    src = (
+        "lemma | tags | definition | notes\n"
+        "----- | ---- | ---------- | -----\n"
+        r"deny | concept | allow\/ask\/deny artifact | the verdict" + "\n"
+        r"heti | component | bakobo\/heti, over keripy | a dependency" + "\n"
+    )
+    buf = io.StringIO(src)
+    gl = Glossary()
+    # load() takes a filename; exercise the round-trip via a temp file
+    import tempfile
+    with tempfile.NamedTemporaryFile('w+', suffix='.md', delete=False) as tf:
+        tf.write(src)
+        path = tf.name
+    gl = Glossary.load(path)
+    out = io.StringIO()
+    gl.save(handle=out)
+    assert out.getvalue() == src
+    os.remove(path)
+
+# ── Glossary.update / Glossary.remove ──────────────────────────────────────────
+# These encapsulate the entry-editing idiom that commands/repl.py used to open-code
+# (mutate fields, re-sort on lemma change, invalidate the stats cache).
+
+def test_glossary_remove():
+    gl = Glossary.load(SAMPLE_MD_GLOSS_PATH)
+    _ = gl.stats                        # populate the stats cache
+    e = gl.find('l:fry!')[0]
+    gl.remove(e)
+    assert e not in gl.entries
+    assert gl._unsaved is True
+    assert gl._stats is None            # cache invalidated
+
+def test_glossary_update_fields_no_rename():
+    gl = Glossary.load(SAMPLE_MD_GLOSS_PATH)
+    _ = gl.stats
+    e = gl.find('l:fry!')[0]
+    ret = gl.update(e, tags='v zzz', notes='hot oil')
+    assert ret is e
+    assert sorted(e.tags) == ['v', 'zzz']
+    assert e.notes == 'hot oil'
+    assert gl._stats is None
+    assert 'zzz' in gl.stats['tags']    # recomputed after invalidation
+
+def test_glossary_update_defn_accepts_str_and_Defn():
+    gl = Glossary.load(SAMPLE_MD_GLOSS_PATH)
+    e = gl.find('l:fry!')[0]
+    gl.update(e, defn='to saute')
+    assert str(e.defn) == 'to saute'
+    gl.update(e, defn=Defn('to fry'))
+    assert str(e.defn) == 'to fry'
+
+def test_glossary_update_rename_resorts():
+    gl = Glossary.load(SAMPLE_MD_GLOSS_PATH)
+    e = gl.find('l:apple!')[0]
+    gl.update(e, lemma='zebra')
+    lemmas = [x.lemma for x in gl.entries]
+    assert lemmas == sorted(lemmas)     # still sorted after the rename
+    assert gl.find('l:zebra!')
+    assert not gl.find('l:apple!')
+
+def test_glossary_update_partial_noop_when_all_none():
+    gl = Glossary.load(SAMPLE_MD_GLOSS_PATH)
+    e = gl.find('l:fry!')[0]
+    before = str(e)
+    gl.update(e)
+    assert str(e) == before

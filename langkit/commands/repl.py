@@ -39,53 +39,47 @@ def show_hits(ctx, which=None, with_number=True):
 
 def delete(ctx, entry):
     g = ctx.lang.glossary
-    g.entries.remove(entry)
-    g._stats = None
+    g.remove(entry)
     g.save(force=True)
     print(f"Deleted {entry.lemma}.")
 
 def edit(ctx, entry):
     g = ctx.lang.glossary
+    # Collect edits into a dict and apply them all at once via Glossary.update,
+    # which maintains sort order and invalidates the stats cache. Accumulating
+    # first (rather than mutating field-by-field) also means a mid-edit
+    # KeyboardInterrupt leaves the entry untouched — no undo needed.
+    changes = {}
     try:
-        changed = False
         write('\n')
         new = prompt_options(f"   lex: {entry.lemma}")
-        if new and new != entry.lemma: 
+        if new and new != entry.lemma:
             redundant = g.find(f'l:{new}')
             if redundant:
                 warn("Edit would overwrite {lex} entry that already exists.")
                 return
-            changed = entry.lemma = new
-            # Since lemma has changed, it may sort differently.
-            # Take it out of glossary entry list, then re-add it
-            # to maintain proper sort order.
-            g.entries.remove(entry)
-            g.insert(entry)
+            changes['lemma'] = new
         new = prompt_options(f"   tags: {' '.join(entry.tags)}")
-        if new: changed = entry.tags = new.split()
+        if new: changes['tags'] = new.split()
         new = prompt_options(f"   defn: {entry.defn} (/ to append)")
         if new:
             if new.startswith('/'):
-                new = str(entry.defn) + ' ' + new 
-            changed = entry.defn = Defn(new)
+                new = str(entry.defn) + ' ' + new
+            changes['defn'] = Defn(new)
         notes = entry.notes if entry.notes else '.'
         new = prompt_options(f"   notes: {notes} (. = none)")
         if new:
-            if new == '.': 
-                new = ''
-                changed = bool(entry.notes)
+            if new == '.':
+                if entry.notes:
+                    changes['notes'] = ''
             else:
-                changed = True
-            entry.notes = new
+                changes['notes'] = new
     except KeyboardInterrupt:
-        # Undo whatever edit(s) we made.
-        if changed:
-            ctx.lang.glossary = Glossary.load(g.fname)
-            changed = False
+        changes = {}   # nothing applied yet; discard pending edits
     print()
-    if changed:
+    if changes:
+        g.update(entry, **changes)
         g.save(force=True)
-        g._stats = None
         show_hits(ctx, [entry], with_number=False)
     else:
         print("Abandoned edit.")

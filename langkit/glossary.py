@@ -16,6 +16,27 @@ HEADER = COLUMN_SEP.join(COLUMNS)
 DIVIDER = re.sub('[a-zA-Z]', '-', HEADER)
 DIVIDER_PAT = re.compile(r'\s*' + r"\s*\|\s*".join(['-+']*len(COLUMNS)) + r'\s*')
 
+# A definition column may contain a literal '/' (which would otherwise be read as
+# the equiv separator) or a literal '\'. On disk these are backslash-escaped:
+# '\/' is a literal slash, '\\' a literal backslash. In memory, DefnItem.value is
+# always unescaped, so search/gloss/stats operate on the real text; serialization
+# re-escapes. Existing slash-free glossaries (Kila, martian) are untouched — they
+# contain no '\', so protection/restoration and escaping are all no-ops for them.
+_SENT_BACKSLASH = '\x00'   # placeholder for an escaped '\\' while splitting on '/'
+_SENT_SLASH = '\x01'       # placeholder for an escaped '\/' while splitting on '/'
+
+def _protect(txt):
+    """Hide escaped sequences so only genuine '/' separators remain visible."""
+    return txt.replace('\\\\', _SENT_BACKSLASH).replace('\\/', _SENT_SLASH)
+
+def _restore(txt):
+    """Turn placeholders back into the literal characters they stood for."""
+    return txt.replace(_SENT_SLASH, '/').replace(_SENT_BACKSLASH, '\\')
+
+def _escape(value):
+    """Escape a literal value for the definition column (backslash first)."""
+    return value.replace('\\', '\\\\').replace('/', '\\/')
+
 class DefnItem:
     def __init__(self, txt):
         ec = txt[0]
@@ -41,7 +62,7 @@ class DefnItem:
         return ''
     
     def __str__(self):
-        return self.kind + self.value
+        return self.kind + _escape(self.value)
 
     def __lt__(self, other):
         if self.kind == EXACT_EQUIV:
@@ -62,14 +83,15 @@ class Defn:
         self._txt = None
 
     def parse(self, txt):
+        txt = _protect(txt)   # only genuine '/' separators remain visible
         while txt:
             m = EQUIVS_PAT.match(txt)
             if m:
                 prefix = m.group(1) if m.group(1) else ''
-                self.equivs.append(DefnItem(prefix + m.group(2).strip()))
+                self.equivs.append(DefnItem(_restore(prefix + m.group(2).strip())))
                 txt = txt[m.end():]
             else:
-                self.equivs.append(DefnItem(txt))
+                self.equivs.append(DefnItem(_restore(txt)))
                 break
         self.equivs.sort()
 
@@ -117,7 +139,7 @@ class MatchExpr:
         self.first_wildcard = -1 if wc1 == NO_WILDCARD else wc1
         self._regex = None if self.first_wildcard == -1 else re.compile(
             expr.replace('?', '.').replace('*', '.*?').replace('!', r'\b')\
-            .replace('(', '\(').replace(')', '\)'))
+            .replace('(', r'\(').replace(')', r'\)'))
 
     @property
     def wildcarded(self):
@@ -218,6 +240,14 @@ class SearchExpr:
         return True
 
 class Glossary:
+    """A sorted collection of glossary entries.
+
+    Lemma comparison — used for sorting, insertion position, and lookup — is
+    **case-sensitive (byte order)** by design: langkit targets writing systems
+    where casing rules are not English and 'A'/'a' may be unrelated letters, so
+    case-folding is not assumed. Callers must therefore use each lemma in its
+    canonical case (e.g. `AID` and `aid` are distinct entries)."""
+
     def __init__(self):
         self.pre = ''
         self.fname = None
@@ -334,6 +364,8 @@ class Glossary:
             return True
 
     def find(self, expr, max_hits=5, exclude=None, try_fuzzy=False):
+        """Search entries with a SearchExpr (or its string form). Matching is
+        case-sensitive (see the class docstring); use canonical-case terms."""
         hits = []
         s_expr = expr if isinstance(expr, SearchExpr) else SearchExpr(expr)
         initial_search = s_expr.starter
@@ -364,3 +396,31 @@ class Glossary:
         self.entries.insert(index, entry)
         self._unsaved = True
         self._stats = None
+
+    def remove(self, entry: Entry):
+        self.entries.remove(entry)
+        self._unsaved = True
+        self._stats = None
+
+    def update(self, entry: Entry, lemma=None, tags=None, defn=None, notes=None):
+        """Edit an existing entry in place. Any field left None is unchanged.
+        A changed lemma re-sorts the entry so ``entries`` stays ordered. Marks the
+        glossary unsaved and invalidates the stats cache. Returns the entry.
+        The caller owns collision policy (a lemma rename is not checked here)."""
+        lemma_changed = lemma is not None and lemma != entry.lemma
+        if lemma is not None:
+            entry.lemma = lemma
+        if tags is not None:
+            entry.tags = tags.split() if isinstance(tags, str) else list(tags)
+        if defn is not None:
+            entry.defn = defn if isinstance(defn, Defn) else Defn(defn)
+        if notes is not None:
+            entry.notes = notes
+        if lemma_changed:
+            # A new lemma sorts differently; re-position to keep entries ordered.
+            self.entries.remove(entry)
+            self.insert(entry)          # sets _unsaved + invalidates _stats
+        else:
+            self._unsaved = True
+            self._stats = None
+        return entry
