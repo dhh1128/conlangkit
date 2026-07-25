@@ -197,26 +197,30 @@ irregular_past = [
     ("wrung", "wring"),
 ]
 
+
 def find_regular(pairs, irregular):
     index = bisect.bisect_left(pairs, (irregular, ""))
     if index != len(pairs):
         found = pairs[index]
         if found[0] == irregular:
             return found[1]
-        
+
 
 vowels = "aeiou"
-two_vowels_plus_cons_with_silent_e = ['iev', 'eiv', 'eas', 'aus', 'uad', 'iat']
+two_vowels_plus_cons_with_silent_e = ["iev", "eiv", "eas", "aus", "uad", "iat"]
+
 
 def likely_silent_e(verb_root):
     if len(verb_root) >= 3:
         if verb_root[-1] not in vowels:
-            if verb_root[-2:] == "nc": return True
+            if verb_root[-2:] == "nc":
+                return True
             if verb_root[-2] in vowels:
                 if verb_root[-3:] in two_vowels_plus_cons_with_silent_e:
-                    return True                
+                    return True
                 return verb_root[-3] not in vowels
     return False
+
 
 def bfr(word, pos):
     """
@@ -226,55 +230,72 @@ def bfr(word, pos):
     This algorithm is very crude. It only aims to increase the success
     of glossary lookup a modest amount.
     """
-    if pos == 'VBD': # verb past tense: gave, walked
+    if pos == "VBD":  # verb past tense: gave, walked
         regular = find_regular(irregular_past, word)
-        if regular: return (regular, 'v')
-        if word.endswith('ed'):
-            cutoff = -1 if likely_silent_e(word[:-2]) else -2 
-            return (word[:cutoff], 'v')
-    elif pos == 'VBG': # verb gerund/present participle: walking
-        if word.endswith('ing'):
+        if regular:
+            return (regular, "v")
+        if word.endswith("ed"):
+            cutoff = -1 if likely_silent_e(word[:-2]) else -2
+            return (word[:cutoff], "v")
+    elif pos == "VBG":  # verb gerund/present participle: walking
+        if word.endswith("ing"):
             word = word[:-3]
             # Undo doubled consonants if present (e.g., swimming, hitting)
-            if word[-1] == word[-2]: return (word[:-1], 'v')
+            if word[-1] == word[-2]:
+                return (word[:-1], "v")
             # Add silent e in places where it likely belongs.
-            if likely_silent_e(word): return (word + 'e', 'v')
-            return (word, 'v')
-    elif pos == 'VBN': # verb past participle: given, walked
+            if likely_silent_e(word):
+                return (word + "e", "v")
+            return (word, "v")
+    elif pos == "VBN":  # verb past participle: given, walked
         regular = find_regular(irregular_past_parts, word)
-        if regular: return (regular, 'v')
-        if word.endswith('ed'): 
-            cutoff = -1 if likely_silent_e(word[:-2]) else -2 
-            return (word[:cutoff], 'v')
-    elif pos == 'VBP': # verb non-3rd person singular present: walk
-        if word in ['are', 'am']: return ('be', 'v')
-    elif pos == 'VBZ': # verb 3rd person singular present: walks
-        if word.endswith('s'):
-            return ('be', 'v') if word == 'is' else (word[:-1], 'v')
-    elif pos == 'RB':
-        if word.endswith('ly'): return (word[:-2], 'ad')
-    elif pos == 'JJR':
-        if word.endswith('er'):
+        if regular:
+            return (regular, "v")
+        if word.endswith("ed"):
+            cutoff = -1 if likely_silent_e(word[:-2]) else -2
+            return (word[:cutoff], "v")
+    elif pos == "VBP":  # verb non-3rd person singular present: walk
+        if word in ["are", "am"]:
+            return ("be", "v")
+    elif pos == "VBZ":  # verb 3rd person singular present: walks
+        if word.endswith("s"):
+            return ("be", "v") if word == "is" else (word[:-1], "v")
+    elif pos == "RB":
+        if word.endswith("ly"):
+            return (word[:-2], "ad")
+    elif pos == "JJR":
+        if word.endswith("er"):
             word = word[:-2]
-            return (word[:-1], 'ad') if word[-1] == word[-2] else (word, 'ad')
-    elif pos == 'JJS':
-        if word.endswith('est'): return (word[:-3], 'ad')
-    elif pos == 'JJ':
-        if word.endswith('ly'): return (word[:-2], 'n')
-        if word.endswith('ic'): return (word[:-2], 'n')
-        if word.endswith('ish'): return (word[:-3], 'n')
-        if word.endswith('like'): return (word[:-4], 'n')	
-        if word.endswith('y'): return (word[:-1], 'n')
-        if word.endswith('ing'): return (word[:-3], 'v')
-    elif pos.startswith('NN'):
+            return (word[:-1], "ad") if word[-1] == word[-2] else (word, "ad")
+    elif pos == "JJS":
+        if word.endswith("est"):
+            return (word[:-3], "ad")
+    elif pos == "JJ":
+        if word.endswith("ly"):
+            return (word[:-2], "n")
+        if word.endswith("ic"):
+            return (word[:-2], "n")
+        if word.endswith("ish"):
+            return (word[:-3], "n")
+        if word.endswith("like"):
+            return (word[:-4], "n")
+        if word.endswith("y"):
+            return (word[:-1], "n")
+        if word.endswith("ing"):
+            return (word[:-3], "v")
+    elif pos.startswith("NN"):
         modified = False
-        if word.endswith('ies'): return (word[:-3] + 'y', 'n') #bodies
-        if word.endswith('s') and pos == 'NNS': 
-            word = word[:-1] #smiles
+        if word.endswith("ies"):
+            return (word[:-3] + "y", "n")  # bodies
+        if word.endswith("s") and pos == "NNS":
+            word = word[:-1]  # smiles
             modified = True
-        if word.endswith('tion'): return (word[:-4], 'v') #creation
-        if word.endswith('or'): return (word[:-2], 'v') #sailor
-        if word.endswith('er'): return (word[:-2], 'v') #farmer
-        if modified: return (word, 'n')
+        if word.endswith("tion"):
+            return (word[:-4], "v")  # creation
+        if word.endswith("or"):
+            return (word[:-2], "v")  # sailor
+        if word.endswith("er"):
+            return (word[:-2], "v")  # farmer
+        if modified:
+            return (word, "n")
     return None, None
-

@@ -3,12 +3,13 @@ delete commands still work after they were refactored to call Glossary.update /
 Glossary.remove instead of open-coding the mutate + re-sort + `_stats = None`
 sequence. The stats-cache invalidation (previously an inline poke of the private
 `_stats`) is asserted here."""
+
 import os
 import tempfile
 from types import SimpleNamespace
 
-from ..glossary import Glossary
 from ..commands import repl
+from ..glossary import Glossary
 
 GLOSS = (
     "lemma | tags | definition | notes\n"
@@ -40,10 +41,10 @@ def _script(monkeypatch, answers):
 def test_edit_field_change_invalidates_stats_and_persists(monkeypatch):
     g, path = _load_temp()
     try:
-        assert "zzz" not in g.stats["tags"]        # populate + assert cache
+        assert "zzz" not in g.stats["tags"]  # populate + assert cache
         _script(monkeypatch, ["", "v zzz", "", ""])  # lex same, tags, defn none, notes none
         repl.edit(_ctx(g), g.find("l:fry!")[0])
-        assert "zzz" in g.stats["tags"]            # cache was invalidated + recomputed
+        assert "zzz" in g.stats["tags"]  # cache was invalidated + recomputed
         assert "zzz" in Glossary.load(path).find("l:fry!")[0].tags  # saved to disk
     finally:
         os.remove(path)
@@ -55,7 +56,7 @@ def test_edit_rename_resorts_and_persists(monkeypatch):
         _script(monkeypatch, ["zebra", "", "", ""])  # rename apple -> zebra
         repl.edit(_ctx(g), g.find("l:apple!")[0])
         lemmas = [e.lemma for e in g.entries]
-        assert lemmas == sorted(lemmas)            # still ordered after rename
+        assert lemmas == sorted(lemmas)  # still ordered after rename
         assert g.find("l:zebra!") and not g.find("l:apple!")
         reloaded = [e.lemma for e in Glossary.load(path).entries]
         assert "zebra" in reloaded and "apple" not in reloaded
@@ -66,7 +67,7 @@ def test_edit_rename_resorts_and_persists(monkeypatch):
 def test_edit_abandoned_when_no_changes(monkeypatch):
     g, path = _load_temp()
     try:
-        _script(monkeypatch, ["", "", "", ""])     # all blank -> no change
+        _script(monkeypatch, ["", "", "", ""])  # all blank -> no change
         before = str(g.find("l:fry!")[0])
         repl.edit(_ctx(g), g.find("l:fry!")[0])
         assert str(g.find("l:fry!")[0]) == before
@@ -77,10 +78,10 @@ def test_edit_abandoned_when_no_changes(monkeypatch):
 def test_delete_removes_invalidates_stats_and_persists(monkeypatch):
     g, path = _load_temp()
     try:
-        _ = g.stats                                # populate cache
+        _ = g.stats  # populate cache
         repl.delete(_ctx(g), g.find("l:fry!")[0])
         assert not g.find("l:fry!")
-        assert g._stats is None                    # invalidated via Glossary.remove
+        assert g._stats is None  # invalidated via Glossary.remove
         assert not Glossary.load(path).find("l:fry!")
     finally:
         os.remove(path)

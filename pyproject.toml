@@ -65,4 +65,60 @@ include = ["/src/conlangkit", "/pyproject.toml", "/README.md", "/LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["src/conlangkit/tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --cov=conlangkit --cov-report=term-missing"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src"]
+
+[tool.ruff.lint]
+# A pragmatic set for a legacy codebase: pyflakes (F), a curated pycodestyle
+# subset (E4/E7/E9), import sorting (I), and pyupgrade (UP). Deliberately not
+# strict yet — the adversarial review panel drives the deeper idiom cleanup.
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+# F403/F405 (star imports): the codebase leans on `from .ui import *` and
+# `from ... import *` throughout the tests as a deliberate idiom. Flagged for
+# the review panel as a cleanup target rather than churned mechanically here.
+ignore = ["F403", "F405"]
+
+[tool.ruff.lint.per-file-ignores]
+# Documented tech-debt markers (legacy idioms), not blanket suppressions.
+"src/conlangkit/**/__init__.py" = ["F401"]
+"src/conlangkit/commands/repl.py" = ["E722"]        # legacy bare excepts
+"src/conlangkit/phoneme.py" = ["UP007", "UP045"]    # experimental module (README caveat)
+"src/conlangkit/syllable.py" = ["UP007", "UP045"]   # experimental module (README caveat)
+"src/conlangkit/tests/**" = ["E722", "E741"]        # test-only idioms
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/conlangkit"]
+# Third-party libs without type stubs.
+ignore_missing_imports = true
+# Pragmatic baseline: this is untyped legacy code. Type-checking is a ratchet —
+# we start lenient (real type *conflicts* only) and tighten over time.
+check_untyped_defs = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+# Experimental phonotactics (partially broken; see README) + the legacy terminal
+# UI helpers. On the type-tightening backlog; not blocking the type gate yet.
+module = ["conlangkit.phoneme", "conlangkit.syllable", "conlangkit.ui"]
+ignore_errors = true
+
+[tool.coverage.run]
+source = ["conlangkit"]
+branch = true
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+# Baseline is ~68% (branch); set the floor a little below to catch regressions
+# without blocking on the experimental/UI modules. Ratchet upward over time.
+fail_under = 60
+exclude_also = [
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

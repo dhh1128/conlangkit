@@ -5,12 +5,13 @@ def _load_plugins():
     plugins = {}
     import importlib
     import os
+
     my_folder = os.path.dirname(os.path.abspath(__file__))
     for item in os.listdir(my_folder):
-        if item.endswith('.py') and item[0] not in '_.' and item != 'help.py':
+        if item.endswith(".py") and item[0] not in "_." and item != "help.py":
             item = item[:-3]
-            module = importlib.import_module(f'.{item}', __name__)
-            cmd = getattr(module, 'cmd')
+            module = importlib.import_module(f".{item}", __name__)
+            cmd = getattr(module, "cmd")
             if cmd:
                 plugins[item] = cmd
     return plugins

@@ -38,4 +38,4 @@ class Postcondition:
 
     def __exit__(self, *args):
         if not self.postchecker():
-            raise PostconditionViolation(comment)
+            raise PostconditionViolation(self.comment)

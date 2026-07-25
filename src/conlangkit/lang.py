@@ -1,9 +1,9 @@
-import os
+import importlib.util
 import json
+import os
 
 from .glossary import Glossary
 
-import importlib.util
 
 def _import_module_from_path(module_name, module_path):
     spec = importlib.util.spec_from_file_location(module_name, module_path)
@@ -11,8 +11,10 @@ def _import_module_from_path(module_name, module_path):
     spec.loader.exec_module(module)
     return module
 
-CFG_NAME = 'cfg.json'
-GLOSSARY_NAME = 'glossary.md'
+
+CFG_NAME = "cfg.json"
+GLOSSARY_NAME = "glossary.md"
+
 
 class Lang:
     def __init__(self, path):
@@ -21,7 +23,7 @@ class Lang:
         self._syl = None
         self._advise_func = 0
         if os.path.isfile(self.cfg_path):
-            with open(self.cfg_path, 'rt') as f:
+            with open(self.cfg_path) as f:
                 self.cfg = json.loads(f.read())
         else:
             self.cfg = {}
@@ -29,14 +31,14 @@ class Lang:
 
     @property
     def advise_module_path(self):
-        return os.path.join(self.path, 'advise.py')
-    
+        return os.path.join(self.path, "advise.py")
+
     @property
     def advise_func(self):
         if self._advise_func == 0:
             amp = self.advise_module_path
             if os.path.isfile(amp):
-                module = _import_module_from_path('advise', amp)
+                module = _import_module_from_path("advise", amp)
                 self._advise_func = module.advise
             else:
                 self._advise_func = None
@@ -56,22 +58,22 @@ class Lang:
     @property
     def cfg_path(self):
         return os.path.join(self.path, CFG_NAME)
-    
+
     @property
     def gloss_path(self):
         return os.path.join(self.path, GLOSSARY_NAME)
-    
+
     @property
     def sylpats(self):
-        return self.cfg.get('sylpats', ['V', 'CV'])
+        return self.cfg.get("sylpats", ["V", "CV"])
 
     @property
     def vowels(self):
-        return self.cfg.get('vowels', ['a', 'i'])
+        return self.cfg.get("vowels", ["a", "i"])
 
     @property
     def consonants(self):
-        return self.cfg.get('consonants', ['k', 't', 'm'])
+        return self.cfg.get("consonants", ["k", "t", "m"])
 
     @property
     def syllables(self):
