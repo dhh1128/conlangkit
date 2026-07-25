@@ -29,3 +29,8 @@ repos:
         types: [python]
         pass_filenames: false
         require_serial: true
+      - id: check-unicode
+        name: reject Trojan-Source / invisible Unicode
+        entry: python3 scripts/check_unicode.py
+        language: system
+        pass_filenames: false

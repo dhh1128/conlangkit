@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Keep SHA-pinned GitHub Actions current. Grouped so one PR bumps every
+  # action (SHA + trailing "# vN" comment) together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "github-actions"]
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # The native uv ecosystem regenerates uv.lock alongside pyproject.toml, so
+  # `uv run --locked` in CI stays green (the pip ecosystem would not).
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "python"]
+    groups:
+      python:
+        patterns: ["*"]
