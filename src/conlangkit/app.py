@@ -9,16 +9,16 @@ from .ui import *
 
 def help(cmd=None):
     print("""
-lk -- develop artifacts for artificial languages
-          
+clk -- develop artifacts for artificial languages
+
 Available commands
 """)
     for name, func in PLUGINS.items():
         doc = func.__doc__.strip()
         i = doc.find('-')
         syntax, doc = doc[:i].rstrip(), doc[i+1:].lstrip()
-        print(f"  lk LANGDIR {name} {syntax}\n      {doc}\n")
-    print("  lk help [cmd]\n      display general help, or help on a specific command\n")
+        print(f"  clk LANGDIR {name} {syntax}\n      {doc}\n")
+    print("  clk help [cmd]\n      display general help, or help on a specific command\n")
 
 def match_command(which):
     for name, func in PLUGINS.items():

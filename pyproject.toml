@@ -4,19 +4,65 @@ build-backend = "hatchling.build"
 
 [project]
 name = "conlangkit"
-version = "0.1.0"
-description = "Toolkit for building constructed languages"
+dynamic = ["version"]
+description = "A Python toolkit for building constructed languages: glossary format & search, base-form reduction, POS tagging, and orthography."
+readme = "README.md"
 requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Daniel Hardman", email = "daniel.hardman@gmail.com" }]
+keywords = [
+    "conlang",
+    "constructed-language",
+    "linguistics",
+    "glossary",
+    "nlp",
+    "orthography",
+    "phonology",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "nltk>=3.8",
     "termcolor>=2.0",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=8"]
+[project.scripts]
+clk = "conlangkit.app:main"
+
+[project.urls]
+Homepage = "https://github.com/dhh1128/conlangkit"
+Repository = "https://github.com/dhh1128/conlangkit"
+Issues = "https://github.com/dhh1128/conlangkit/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pre-commit>=3.8",
+]
+
+[tool.hatch.version]
+path = "src/conlangkit/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/conlangkit"]
 
+[tool.hatch.build.targets.sdist]
+include = ["/src/conlangkit", "/pyproject.toml", "/README.md", "/LICENSE"]
+
 [tool.pytest.ini_options]
 testpaths = ["src/conlangkit/tests"]
+addopts = "-ra --strict-markers"

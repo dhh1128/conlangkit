@@ -7,8 +7,8 @@ def cmd(_, args=None):
     """
 
     print("""
-lk -- develop artifacts for artificial languages
-          
+clk -- develop artifacts for artificial languages
+
 Available commands
 """)
     # To avoid a circular import problem, we didn't load the help plugin dynamically.
@@ -19,5 +19,5 @@ Available commands
         doc = func.__doc__.strip()
         i = doc.find('-')
         syntax, doc = doc[:i].rstrip(), doc[i+1:].lstrip()
-        print("  lk lang %s %s\n      %s\n" % (name, syntax, doc))
+        print("  clk LANGDIR %s %s\n      %s\n" % (name, syntax, doc))
 
