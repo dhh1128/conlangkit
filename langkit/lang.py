@@ -75,10 +75,11 @@ class Lang:
 
     @property
     def syllables(self):
-        if self._syl is None:
-            syl = []
-            for pat in self.sylpats:
-                for s in _FIXgenerate_syllables(pat, self.vowels, self.consonants):
-                    syl.append(s)
-            self._syl = syl
-        return self._syl
+        # _FIXgenerate_syllables was removed because it produced phonotactically
+        # incorrect syllables. The replacement (syllable.candidates()) requires
+        # IPA phoneme strings and has not yet been wired up here.
+        raise NotImplementedError(
+            "Lang.syllables is not implemented. The old naive syllable generator "
+            "was removed. Use syllable.candidates() directly, passing IPA vowels, "
+            "consonants, and patterns."
+        )
