@@ -114,9 +114,10 @@ omit = ["*/tests/*"]
 
 [tool.coverage.report]
 show_missing = true
-# Baseline is ~68% (branch); set the floor a little below to catch regressions
-# without blocking on the experimental/UI modules. Ratchet upward over time.
-fail_under = 60
+# Baseline after the targeted-coverage pass is ~75% (branch); the library API
+# modules sit at 82-100%, the remainder is the interactive REPL/CLI. This floor
+# is a ratchet on newly added code — raise it as coverage improves.
+fail_under = 75
 exclude_also = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
