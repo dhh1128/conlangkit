@@ -1,79 +1,104 @@
-# langkit
+# conlangkit
 
-A Python toolkit for building constructed languages. Provides a glossary
+[![CI](https://github.com/dhh1128/conlangkit/actions/workflows/ci.yml/badge.svg)](https://github.com/dhh1128/conlangkit/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/dhh1128/conlangkit/actions/workflows/codeql.yml/badge.svg)](https://github.com/dhh1128/conlangkit/actions/workflows/codeql.yml)
+[![PyPI](https://img.shields.io/pypi/v/conlangkit.svg)](https://pypi.org/project/conlangkit/)
+[![Python versions](https://img.shields.io/pypi/pyversions/conlangkit.svg)](https://pypi.org/project/conlangkit/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
+A Python toolkit for building **constructed languages**. It provides a glossary
 format and search engine, base-form reduction for English, part-of-speech
-tagging integration, phoneme/syllable primitives, and an orthography
-transliterator.
+tagging integration, an orthography transliterator, and phoneme/syllable
+primitives — plus a `clk` command-line tool for working with a language on disk.
 
-Phonotactic features (`syllable.candidates`, `Lang.syllables`) are
-experimental and partially broken — `Lang.syllables` currently raises
-`NotImplementedError`. Use `syllable.candidates()` directly if you need
-phonotactic syllable generation.
+> **Experimental:** the phonotactic features (`syllable.candidates`,
+> `Lang.syllables`) are partially implemented. `Lang.syllables` currently raises
+> `NotImplementedError`; call `syllable.candidates()` directly if you need
+> phonotactic syllable generation.
 
-## Install as an editable dependency
+> **Name note:** the import package is `conlangkit`. It is unrelated to the
+> `langkit` project on PyPI (WhyLabs' LLM-monitoring library).
 
-From a sibling project, add to your `pyproject.toml` or `requirements.txt`:
-
-```
-langkit @ file:///../langkit
-```
-
-Or install directly into your virtual environment:
+## Install
 
 ```bash
-pip install -e /path/to/langkit
+pip install conlangkit      # or: uv add conlangkit
 ```
 
-## Development setup
+This installs the library and the `clk` command-line tool.
 
-```bash
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-pip install -e ".[dev]"
-python -m pytest langkit/tests/
-```
-
-Use the venv — the repo root has a `venv/` that is gitignored. Running
-`python` or `pip` outside it may resolve to a different interpreter.
-
-## Quick example: load a glossary and search
+## Quick example
 
 ```python
-from langkit.glossary import Glossary
+from conlangkit.glossary import Glossary
 
 g = Glossary.load("path/to/glossary.md")
 print(f"{g.lemma_count} entries loaded")
 
 # Find entries whose definition contains "fruit"
-hits = g.find("d:*fruit", max_hits=10)
-for entry in hits:
+for entry in g.find("d:*fruit", max_hits=10):
     print(entry.lemma, "—", entry.defn)
 
 # Fuzzy search across lemma and definition
 hits = g.find("apple", try_fuzzy=True)
 ```
 
-Glossary files are Markdown tables with four pipe-delimited columns:
-`lemma | tags | definition | notes`. The file may have arbitrary Markdown
-before and after the table.
+Glossary files are Markdown tables with four pipe-delimited columns —
+`lemma | tags | definition | notes` — and may have arbitrary Markdown before and
+after the table. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full format.
+
+## Command-line tool
+
+```bash
+clk <LANGDIR> repl      # interactive REPL over the language in <LANGDIR>
+clk <LANGDIR>           # defaults to the repl
+clk help                # general help
+```
+
+`<LANGDIR>` is a directory containing a language (`cfg.json` + `glossary.md`).
 
 ## Public API
 
-See the [API audit](#api-audit) section in the project's final report
-(or read the source — all public names are in the modules listed below).
-
-Key entry points:
+The supported surface (imported directly from its submodule):
 
 | Name | Module | Purpose |
 |------|--------|---------|
-| `Glossary` | `langkit.glossary` | Load, save, and search a glossary file |
-| `Entry` | `langkit.glossary` | A single glossary entry (lemma, tags, defn, notes) |
-| `Defn` / `DefnItem` | `langkit.glossary` | Parsed definition with multiple equivalences |
-| `SearchExpr` / `MatchExpr` | `langkit.glossary` | Search expression objects |
-| `bfr` | `langkit.bfr` | Base-form reduction (inflected English → lemma) |
-| `find_by_nltk` | `langkit.pos` | Map an NLTK POS tag to a langkit POS |
-| `Lang` | `langkit.lang` | Language object: config + glossary + phonology |
-| `TranslationCoach` | `langkit.tcoach` | Hint-based translation assistant |
-| `Orthography` | `langkit.ortho` | Bidirectional transliteration |
-| `Syllable` / `Pattern` / `candidates` | `langkit.syllable` | Phonotactic syllable primitives |
-| `Phoneme` / `ByIPA` / `ByXSampa` | `langkit.phoneme` | IPA phoneme inventory |
+| `Glossary` | `conlangkit.glossary` | Load, save, and search a glossary file |
+| `Entry` | `conlangkit.glossary` | A single glossary entry (lemma, tags, defn, notes) |
+| `Defn` / `DefnItem` | `conlangkit.glossary` | Parsed definition with multiple equivalences |
+| `SearchExpr` / `MatchExpr` | `conlangkit.glossary` | Search-expression objects |
+| `Lang` | `conlangkit.lang` | Language object: config + glossary + phonology |
+| `TranslationCoach` / `rewrite_rules` | `conlangkit.tcoach` | Hint-based translation assistant |
+| `bfr` | `conlangkit.bfr` | Base-form reduction (inflected English → lemma) |
+| `find_by_nltk` | `conlangkit.pos` | Map an NLTK POS tag to a conlangkit POS |
+| `Orthography` | `conlangkit.ortho` | Bidirectional transliteration |
+| `Syllable` / `candidates` | `conlangkit.syllable` | Phonotactic primitives (experimental) |
+| `Phoneme` / `ByIPA` / `ByXSampa` | `conlangkit.phoneme` | IPA phoneme inventory (experimental) |
+
+The package ships a `py.typed` marker, so type checkers see its annotations.
+
+## Developer quickstart
+
+Prerequisite: [uv](https://docs.astral.sh/uv/).
+
+```bash
+git clone https://github.com/dhh1128/conlangkit
+cd conlangkit
+uv sync                 # create .venv from uv.lock (incl. dev tools)
+
+# One-time: fetch the NLTK corpora the tests use
+uv run python -c "import nltk; [nltk.download(p, quiet=True) for p in \
+  ['punkt','punkt_tab','averaged_perceptron_tagger','averaged_perceptron_tagger_eng','wordnet']]"
+
+uv run pytest           # tests + coverage
+uv run ruff check .     # lint
+uv run mypy             # type-check
+uv run pre-commit install   # enable pre-commit hooks (once)
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow and
+[AGENTS.md](AGENTS.md) for the conventions AI agents and developers follow here.
+
+## License
+
+[Apache-2.0](LICENSE).
