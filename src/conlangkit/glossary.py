@@ -198,19 +198,23 @@ class SearchExpr:
         self.ignore_case = ignore_case
         criteria = []
         chunks = SCOPED_SEARCH_EXPR.split(expr)
+        # split() yields [text, scope, text, scope, text, ...] — an odd count,
+        # with the recognized scopes in the captured odd positions. The walk below
+        # reads (scope, value) pairs, so chunks[0] always needs a synthetic scope
+        # in front of it, even when it is empty (a query that opens with a scope).
+        # Skipping it leaves an odd count and the walk runs off the end.
         # Accept text without a field prefix. The meaning of this is that
         # the user wants to search in both the lemma and the definition,
         # unless one of those other fields is specified explicitly.
-        if ":" not in chunks[0]:
-            first_chars = [x[0] for x in chunks if ":" in x]
-            if "l" in first_chars:
-                if "d" in first_chars:
-                    raise ValueError("Bad search syntax.")
-                chunks.insert(0, "d:")
-            elif "d" in first_chars:
-                chunks.insert(0, "l")
-            else:
-                chunks.insert(0, "x")
+        first_chars = [x[0] for x in chunks if ":" in x]
+        if "l" in first_chars:
+            if "d" in first_chars:
+                raise ValueError("Bad search syntax.")
+            chunks.insert(0, "d:")
+        elif "d" in first_chars:
+            chunks.insert(0, "l")
+        else:
+            chunks.insert(0, "x")
 
         i = 0
         while i < len(chunks):

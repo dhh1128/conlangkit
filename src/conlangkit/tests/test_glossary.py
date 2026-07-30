@@ -2,6 +2,8 @@ import io
 import os
 import random
 
+import pytest
+
 from ..glossary import *
 
 SAMPLE_GLOSS_PATH = os.path.join(os.path.dirname(__file__), "martian", "glossary.txt")
@@ -42,6 +44,23 @@ def test_searchexpr():
     assert_matches("defn:*xyz")
     assert_matches("not:notes")
     assert_matches("abc*")
+
+
+def test_searchexpr_tolerates_a_colon_that_is_not_a_scope():
+    # A colon the scope pattern does not recognize is ordinary text. It used to
+    # crash the parser: the synthetic leading scope was skipped, leaving an odd
+    # number of chunks for a walk that reads them in (scope, value) pairs.
+    entry = Entry(("ratio", "n", "a 3:1 proportion", "see: the note"))
+    # The stray colon is carried into the match text rather than read as a scope.
+    assert str(SearchExpr("3:1")) == "x:3:1"
+    assert str(SearchExpr("https://example.com")) == "x:https://example.com"
+    assert SearchExpr("d:*3:1*").matches(entry)
+    assert SearchExpr("n:see: the note").matches(entry)
+
+
+def test_searchexpr_rejects_lemma_and_defn_with_loose_text():
+    with pytest.raises(ValueError):
+        SearchExpr("bare t:lish:1 t:dish:2")
 
 
 def test_searchexpr_starter():
