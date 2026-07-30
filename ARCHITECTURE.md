@@ -70,6 +70,11 @@ lemma + tags + defn + notes.
   and definition together.
 - **Wildcards** inside a match: `*` (any run), `?` (any char), `!` (word
   boundary). `try_fuzzy=True` loosens a query into a wildcarded form.
+- **Case** is significant by default, matching lemma comparison. `ignore_case=True`
+  folds it — meant for searching *prose* (definitions, notes), where a capitalized
+  query would otherwise miss silently. Folding forgoes the bisect-and-stop
+  shortcut, because a case-insensitive match need not sit where byte order
+  predicts, so the search scans every entry.
 
 ## Modules
 

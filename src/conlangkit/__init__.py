@@ -8,4 +8,4 @@ The public API lives in the submodules (import them directly), e.g.::
 See the README's "Public API" table for the supported surface.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

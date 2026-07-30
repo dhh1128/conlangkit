@@ -190,6 +190,63 @@ def test_find_anywhere():
     assert len(g.find("vinegar", try_fuzzy=True)) == 1
 
 
+# ── case-insensitive matching (opt-in) ─────────────────────────────────────────
+# Lemma comparison is byte-order by design, so folding is never the default. But
+# definitions and notes are prose, where a capitalized query would otherwise miss
+# silently; callers that search prose can ask for folding explicitly.
+
+
+def test_MatchExpr_ignore_case():
+    # The exact (non-wildcard) path.
+    assert not MatchExpr("abc").matches("ABC")
+    assert MatchExpr("abc", ignore_case=True).matches("ABC")
+    assert MatchExpr("ABC", ignore_case=True).matches("abc")
+    # ...and the wildcard/regex path.
+    assert not MatchExpr("ab*").matches("ABC")
+    assert MatchExpr("ab*", ignore_case=True).matches("ABC")
+
+
+def test_searchexpr_ignore_case():
+    entry = Entry(("Abc", "Tag", "Def Xyz", "Notes"))
+    assert not SearchExpr("l:abc").matches(entry)
+    assert SearchExpr("l:abc", ignore_case=True).matches(entry)
+    assert SearchExpr("t:tag", ignore_case=True).matches(entry)
+    assert SearchExpr("d:*xyz", ignore_case=True).matches(entry)
+    assert SearchExpr("n:notes", ignore_case=True).matches(entry)
+
+
+def test_searchexpr_fuzzify_preserves_ignore_case():
+    # fuzzify() rebuilds its MatchExprs; the folding setting must survive that.
+    se = SearchExpr("d:Abc", ignore_case=True)
+    assert se.fuzzify()
+    assert se.matches(Entry(("x", "v", "an ABC thing", "")))
+
+
+def test_find_ignore_case_is_opt_in():
+    assert not g.find("l:APPLE")
+    assert g.find("l:APPLE", ignore_case=True)
+    assert not g.find("d:A YELLOW FRUIT")
+    assert g.find("d:A YELLOW FRUIT", ignore_case=True)
+
+
+def test_find_ignore_case_scans_past_byte_order():
+    # 'BANANA' bisects to the front (uppercase sorts before lowercase) and the
+    # first entry examined, 'apple', is byte-order greater than the starter — so
+    # the sorted-scan shortcut would stop before reaching 'banana'. Folding must
+    # disable both the bisect and the early break, since byte order no longer
+    # predicts where a case-insensitive match lives.
+    assert g.find("l:BANANA", ignore_case=True)
+    assert g.find("l:SWEET", ignore_case=True)
+
+
+def test_find_ignore_case_survives_the_fuzzy_pass():
+    # The fuzzy pass recurses with an already-built SearchExpr; folding has to
+    # travel on the expression, not just on the find() argument.
+    assert len(g.find("VINEGAR", try_fuzzy=True)) == 0
+    assert len(g.find("VINEGAR", try_fuzzy=True, ignore_case=True)) == 1
+    assert len(g.find("d:*FRUIT", ignore_case=True)) > 1
+
+
 # ── Backslash escaping in the definition column ────────────────────────────────
 # A literal '/' in a definition is written on disk as '\/', a literal '\' as '\\'.
 # In memory, values are always UNESCAPED (so search/gloss operate on real text);

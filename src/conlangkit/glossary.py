@@ -146,8 +146,9 @@ def _is_divider(entry: Entry) -> bool:
 
 
 class MatchExpr:
-    def __init__(self, expr):
+    def __init__(self, expr, ignore_case: bool = False):
         self.expr = expr
+        self.ignore_case = ignore_case
         wildcards = [expr.find(c) for c in "*?!"]
         NO_WILDCARD = 1000000000
         wc1 = NO_WILDCARD
@@ -163,7 +164,8 @@ class MatchExpr:
                 .replace("*", ".*?")
                 .replace("!", r"\b")
                 .replace("(", r"\(")
-                .replace(")", r"\)")
+                .replace(")", r"\)"),
+                re.IGNORECASE if ignore_case else 0,
             )
         )
 
@@ -179,7 +181,11 @@ class MatchExpr:
         return self.expr
 
     def matches(self, txt) -> bool:
-        return self._regex.match(txt) if self._regex else (self.expr == txt)
+        if self._regex:
+            return bool(self._regex.match(txt))
+        if self.ignore_case:
+            return self.expr.casefold() == txt.casefold()
+        return self.expr == txt
 
 
 SCOPED_SEARCH_EXPR = re.compile(
@@ -188,7 +194,8 @@ SCOPED_SEARCH_EXPR = re.compile(
 
 
 class SearchExpr:
-    def __init__(self, expr):
+    def __init__(self, expr, ignore_case: bool = False):
+        self.ignore_case = ignore_case
         criteria = []
         chunks = SCOPED_SEARCH_EXPR.split(expr)
         # Accept text without a field prefix. The meaning of this is that
@@ -209,7 +216,7 @@ class SearchExpr:
         while i < len(chunks):
             m = chunks[i + 1].strip()
             if m:
-                criteria.append((chunks[i][0], MatchExpr(m)))
+                criteria.append((chunks[i][0], MatchExpr(m, ignore_case)))
             i += 2
         self.criteria = criteria
 
@@ -227,7 +234,7 @@ class SearchExpr:
                     expr += "*"
                 if expr != matcher.expr:
                     changed = True
-                    self.criteria[i] = (field, MatchExpr(expr))
+                    self.criteria[i] = (field, MatchExpr(expr, self.ignore_case))
         return changed
 
     def __str__(self):
@@ -401,12 +408,23 @@ class Glossary:
                     f.close()
             return True
 
-    def find(self, expr, max_hits=5, exclude=None, try_fuzzy=False):
+    def find(self, expr, max_hits=5, exclude=None, try_fuzzy=False, ignore_case=False):
         """Search entries with a SearchExpr (or its string form). Matching is
-        case-sensitive (see the class docstring); use canonical-case terms."""
+        case-sensitive (see the class docstring); use canonical-case terms.
+
+        Pass ``ignore_case=True`` to fold case instead. That is for searching
+        *prose* — definitions and notes, where a capitalized query would otherwise
+        miss silently. It is opt-in because lemma identity is byte-exact by design.
+        Folding also costs the sorted-scan shortcut (below), so it scans every entry.
+        When ``expr`` is already a SearchExpr, its own setting wins.
+        """
         hits = []
-        s_expr = expr if isinstance(expr, SearchExpr) else SearchExpr(expr)
-        initial_search = s_expr.starter
+        s_expr = expr if isinstance(expr, SearchExpr) else SearchExpr(expr, ignore_case)
+        # The starter drives two byte-order shortcuts: bisect to the first candidate,
+        # and stop once the scan passes where a match could be. Case-folded matches do
+        # not sit where byte order predicts ('BANANA' bisects ahead of 'apple'), so
+        # folding gives both up — an empty starter disables them together.
+        initial_search = "" if s_expr.ignore_case else s_expr.starter
         index = (
             bisect.bisect_left(self.entries, initial_search, key=lambda x: x.lemma)
             if initial_search

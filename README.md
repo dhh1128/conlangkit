@@ -41,6 +41,9 @@ for entry in g.find("d:*fruit", max_hits=10):
 
 # Fuzzy search across lemma and definition
 hits = g.find("apple", try_fuzzy=True)
+
+# Searching prose? Fold case — lemma matching stays byte-exact by default
+hits = g.find("d:Fruit", ignore_case=True)
 ```
 
 Glossary files are Markdown tables with four pipe-delimited columns —
