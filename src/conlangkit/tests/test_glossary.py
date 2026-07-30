@@ -46,6 +46,52 @@ def test_searchexpr():
     assert_matches("abc*")
 
 
+# The scoped-field syntax is the search language's public contract: `defn:xyz`
+# looks for xyz in definitions only. Asserting it through matches() alone is too
+# weak — a query that resolved to the WRONG scope can still match a test entry by
+# coincidence — so these pin the resolved scope itself, via str(), and then check
+# that each scope refuses text living in a different field.
+
+SCOPE_ABBREVIATIONS = {
+    "l": ["l", "le", "lem", "lemm", "lemma"],
+    "t": ["t", "ta", "tag", "tags"],
+    "d": ["d", "de", "def", "defn"],
+    "n": ["n", "no", "not", "note", "notes"],
+}
+
+
+def test_searchexpr_every_scope_abbreviation_resolves_to_its_field():
+    for canonical, forms in SCOPE_ABBREVIATIONS.items():
+        for form in forms:
+            assert str(SearchExpr(f"{form}:xyz")) == f"{canonical}:xyz"
+            assert str(SearchExpr(f"{form}:*xyz*")) == f"{canonical}:*xyz*"
+            # A scope may also be preceded by other criteria.
+            assert str(SearchExpr(f"l:abc {form}:xyz")).endswith(f"{canonical}:xyz")
+
+
+def test_searchexpr_scopes_do_not_leak_across_fields():
+    entry = Entry(("alpha", "beta", "gamma", "delta"))
+    fields = {"l": "alpha", "t": "beta", "d": "gamma", "n": "delta"}
+    for scope, own in fields.items():
+        assert SearchExpr(f"{scope}:{own}").matches(entry)
+        for other in set(fields.values()) - {own}:
+            assert not SearchExpr(f"{scope}:{other}").matches(entry), (
+                f"{scope}: matched {other!r}, which lives in another field"
+            )
+
+
+def test_searchexpr_unprefixed_covers_lemma_and_definition_only():
+    # An unprefixed term resolves to the 'x' scope: lemma or definition. Tags and
+    # notes are reachable only by naming them, which is what makes the default
+    # useful. Any change to this is a change to what every bare query means.
+    entry = Entry(("alpha", "beta", "gamma", "delta"))
+    assert str(SearchExpr("alpha")) == "x:alpha"
+    assert SearchExpr("alpha").matches(entry)  # lemma
+    assert SearchExpr("gamma").matches(entry)  # definition
+    assert not SearchExpr("beta").matches(entry)  # tags need t:
+    assert not SearchExpr("delta").matches(entry)  # notes need n:
+
+
 def test_searchexpr_tolerates_a_colon_that_is_not_a_scope():
     # A colon the scope pattern does not recognize is ordinary text. It used to
     # crash the parser: the synthetic leading scope was skipped, leaving an odd
